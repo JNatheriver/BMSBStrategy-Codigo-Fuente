@@ -1,0 +1,691 @@
+<html>
+<head>
+<title>BMSBStrategy.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #2aacb8;}
+.s4 { color: #6aab73;}
+.s5 { color: #7a7e85;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+BMSBStrategy.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">talib</span>
+<span class="s0">import </span><span class="s1">pandas </span><span class="s0">as </span><span class="s1">pd</span>
+<span class="s0">import </span><span class="s1">time</span>
+<span class="s0">import </span><span class="s1">requests</span>
+<span class="s0">import </span><span class="s1">tkinter </span><span class="s0">as </span><span class="s1">tk</span>
+<span class="s0">import </span><span class="s1">hmac</span>
+<span class="s0">import </span><span class="s1">base64</span>
+<span class="s0">import </span><span class="s1">hashlib</span>
+<span class="s0">import </span><span class="s1">json</span>
+<span class="s0">from </span><span class="s1">datetime </span><span class="s0">import </span><span class="s1">datetime</span>
+<span class="s0">from </span><span class="s1">tkinter </span><span class="s0">import </span><span class="s1">ttk</span>
+<span class="s0">from </span><span class="s1">threading </span><span class="s0">import </span><span class="s1">Thread</span>
+
+<span class="s0">def </span><span class="s1">get_history_candlestick_data</span><span class="s2">(</span><span class="s1">symbol</span><span class="s2">, </span><span class="s1">granularity</span><span class="s2">, </span><span class="s1">end_time</span><span class="s2">, </span><span class="s1">limit</span><span class="s2">=</span><span class="s3">100</span><span class="s2">, </span><span class="s1">product_type</span><span class="s2">=</span><span class="s4">&quot;usdt-futures&quot;</span><span class="s2">):</span>
+    <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com/api/v2/mix/market/candles&quot;</span>
+
+    <span class="s5"># Convert end_time to string</span>
+    <span class="s1">end_time_str </span><span class="s2">= </span><span class="s1">str</span><span class="s2">(</span><span class="s1">end_time</span><span class="s2">)</span>
+
+    <span class="s5"># Prepare request parameters</span>
+    <span class="s1">params </span><span class="s2">= {</span>
+        <span class="s4">'symbol'</span><span class="s2">: </span><span class="s1">symbol</span><span class="s2">,</span>
+        <span class="s4">'granularity'</span><span class="s2">: </span><span class="s1">granularity</span><span class="s2">,</span>
+        <span class="s4">'endTime'</span><span class="s2">: </span><span class="s1">end_time_str</span><span class="s2">,</span>
+        <span class="s4">'limit'</span><span class="s2">: </span><span class="s1">limit</span><span class="s2">,</span>
+        <span class="s4">'productType'</span><span class="s2">: </span><span class="s1">product_type</span>
+    <span class="s2">}</span>
+
+    <span class="s5"># Make the API request</span>
+    <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s1">base_url</span><span class="s2">, </span><span class="s1">params</span><span class="s2">=</span><span class="s1">params</span><span class="s2">)</span>
+
+    <span class="s5"># Check if the request was successful (status code 200)</span>
+    <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+        <span class="s1">data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">().</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'data'</span><span class="s2">, [])</span>
+        <span class="s1">df </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">DataFrame</span><span class="s2">(</span><span class="s1">data</span><span class="s2">, </span><span class="s1">columns</span><span class="s2">=[</span><span class="s4">'time'</span><span class="s2">, </span><span class="s4">'entry'</span><span class="s2">, </span><span class="s4">'high'</span><span class="s2">, </span><span class="s4">'low'</span><span class="s2">, </span><span class="s4">'close'</span><span class="s2">,</span>
+                                         <span class="s4">'volume_base'</span><span class="s2">, </span><span class="s4">'volume_quote'</span><span class="s2">])</span>
+        <span class="s1">df</span><span class="s2">[</span><span class="s4">'time'</span><span class="s2">] = </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">to_datetime</span><span class="s2">(</span><span class="s1">df</span><span class="s2">[</span><span class="s4">'time'</span><span class="s2">].</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">float</span><span class="s2">), </span><span class="s1">unit</span><span class="s2">=</span><span class="s4">'ms'</span><span class="s2">)</span>
+        <span class="s1">df</span><span class="s2">.</span><span class="s1">set_index</span><span class="s2">(</span><span class="s4">'time'</span><span class="s2">, </span><span class="s1">inplace</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+        <span class="s1">df </span><span class="s2">= </span><span class="s1">df</span><span class="s2">.</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">float</span><span class="s2">)</span>
+        <span class="s0">return </span><span class="s1">df</span>
+    <span class="s0">else</span><span class="s2">:</span>
+        <span class="s5"># If the request was not successful, print the error message</span>
+        <span class="s1">print</span><span class="s2">(</span><span class="s4">f&quot;Error: </span><span class="s0">{</span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code</span><span class="s0">} </span><span class="s4">- </span><span class="s0">{</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s0">return None</span>
+
+<span class="s0">def </span><span class="s1">get_latest_price</span><span class="s2">(</span><span class="s1">symbol</span><span class="s2">, </span><span class="s1">_product_type</span><span class="s2">):</span>
+    <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com/api/v2/mix/market/ticker?&quot;</span>
+
+    <span class="s1">params </span><span class="s2">= {</span>
+        <span class="s4">'symbol'</span><span class="s2">: </span><span class="s1">symbol</span><span class="s2">,</span>
+        <span class="s4">'productType'</span><span class="s2">: </span><span class="s1">_product_type</span>
+    <span class="s2">}</span>
+
+    <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s1">base_url</span><span class="s2">, </span><span class="s1">params</span><span class="s2">=</span><span class="s1">params</span><span class="s2">)</span>
+
+    <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+        <span class="s1">_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">().</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'data'</span><span class="s2">, [])</span>
+        <span class="s0">return </span><span class="s1">_data</span><span class="s2">[</span><span class="s3">0</span><span class="s2">].</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'lastPr'</span><span class="s2">)</span>
+    <span class="s0">else</span><span class="s2">:</span>
+        <span class="s0">return None</span>
+
+<span class="s0">def </span><span class="s1">get_all_symbols</span><span class="s2">(</span><span class="s1">_product_type</span><span class="s2">):</span>
+    <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com/api/v2/mix/market/tickers?&quot;</span>
+    <span class="s1">params </span><span class="s2">= {</span>
+        <span class="s4">'productType'</span><span class="s2">: </span><span class="s1">_product_type</span>
+    <span class="s2">}</span>
+
+    <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s1">base_url</span><span class="s2">, </span><span class="s1">params</span><span class="s2">=</span><span class="s1">params</span><span class="s2">)</span>
+
+    <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+        <span class="s1">_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">().</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'data'</span><span class="s2">, [])</span>
+        <span class="s1">symbols </span><span class="s2">= [</span><span class="s1">item</span><span class="s2">[</span><span class="s4">&quot;symbol&quot;</span><span class="s2">] </span><span class="s0">for </span><span class="s1">item </span><span class="s0">in </span><span class="s1">_data</span><span class="s2">]</span>
+        <span class="s1">symbols </span><span class="s2">= </span><span class="s1">sorted</span><span class="s2">(</span><span class="s1">symbols</span><span class="s2">)</span>
+        <span class="s0">return </span><span class="s1">symbols</span>
+    <span class="s0">else</span><span class="s2">:</span>
+        <span class="s0">return None</span>
+
+<span class="s0">def </span><span class="s1">get_account_info</span><span class="s2">(</span><span class="s1">access_key</span><span class="s2">, </span><span class="s1">secret_key</span><span class="s2">, </span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">symbol</span><span class="s2">, </span><span class="s1">productType</span><span class="s2">, </span><span class="s1">marginCoin</span><span class="s2">):</span>
+    <span class="s5"># API endpoint</span>
+    <span class="s1">url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com/api/v2/mix/account/account&quot;</span>
+
+    <span class="s5"># Params</span>
+    <span class="s1">params </span><span class="s2">= {</span>
+        <span class="s4">&quot;symbol&quot;</span><span class="s2">: </span><span class="s1">symbol</span><span class="s2">,</span>
+        <span class="s4">&quot;productType&quot;</span><span class="s2">: </span><span class="s1">productType</span><span class="s2">,</span>
+        <span class="s4">&quot;marginCoin&quot;</span><span class="s2">: </span><span class="s1">marginCoin</span>
+    <span class="s2">}</span>
+
+    <span class="s5"># Current timestamp in milliseconds</span>
+    <span class="s1">timestamp </span><span class="s2">= </span><span class="s1">str</span><span class="s2">(</span><span class="s1">int</span><span class="s2">(</span><span class="s1">time</span><span class="s2">.</span><span class="s1">time</span><span class="s2">() * </span><span class="s3">1000</span><span class="s2">))</span>
+    <span class="s5">#Signature</span>
+    <span class="s1">message </span><span class="s2">= </span><span class="s1">timestamp </span><span class="s2">+ </span><span class="s4">f&quot;GET/api/v2/mix/account/account?symbol=</span><span class="s0">{</span><span class="s1">symbol</span><span class="s0">}</span><span class="s4">&amp;productType=</span><span class="s0">{</span><span class="s1">productType</span><span class="s0">}</span><span class="s4">&amp;marginCoin=</span><span class="s0">{</span><span class="s1">marginCoin</span><span class="s0">}</span><span class="s4">&quot;</span>
+    <span class="s1">signature </span><span class="s2">= </span><span class="s1">base64</span><span class="s2">.</span><span class="s1">b64encode</span><span class="s2">(</span><span class="s1">hmac</span><span class="s2">.</span><span class="s1">new</span><span class="s2">(</span><span class="s1">secret_key</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">message</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">hashlib</span><span class="s2">.</span><span class="s1">sha256</span><span class="s2">).</span><span class="s1">digest</span><span class="s2">())</span>
+
+    <span class="s1">headers </span><span class="s2">= {</span>
+        <span class="s4">&quot;ACCESS-KEY&quot;</span><span class="s2">: </span><span class="s1">access_key</span><span class="s2">,</span>
+        <span class="s4">&quot;ACCESS-SIGN&quot;</span><span class="s2">: </span><span class="s1">signature</span><span class="s2">,</span>
+        <span class="s4">&quot;ACCESS-TIMESTAMP&quot;</span><span class="s2">: </span><span class="s1">timestamp</span><span class="s2">,</span>
+        <span class="s4">&quot;ACCESS-PASSPHRASE&quot;</span><span class="s2">: </span><span class="s1">passphrase</span><span class="s2">,</span>
+        <span class="s4">&quot;Content-Type&quot;</span><span class="s2">: </span><span class="s4">&quot;application/json&quot;</span>
+    <span class="s2">}</span>
+
+    <span class="s5"># Send the request</span>
+    <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s1">url</span><span class="s2">, </span><span class="s1">headers</span><span class="s2">=</span><span class="s1">headers</span><span class="s2">, </span><span class="s1">params</span><span class="s2">=</span><span class="s1">params</span><span class="s2">)</span>
+
+    <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+        <span class="s1">response_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">()</span>
+        <span class="s0">if </span><span class="s4">'data' </span><span class="s0">in </span><span class="s1">response_data</span><span class="s2">:</span>
+            <span class="s1">data_values </span><span class="s2">= </span><span class="s1">response_data</span><span class="s2">[</span><span class="s4">'data'</span><span class="s2">]</span>
+            <span class="s0">return </span><span class="s1">data_values</span>
+        <span class="s0">else</span><span class="s2">:</span>
+            <span class="s0">return None</span>
+    <span class="s0">else</span><span class="s2">:</span>
+        <span class="s1">print</span><span class="s2">(</span><span class="s4">f&quot;Request failed with status code </span><span class="s0">{</span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code</span><span class="s0">}</span><span class="s4">. Response content:&quot;</span><span class="s2">)</span>
+        <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+        <span class="s0">return None</span>
+
+<span class="s0">class </span><span class="s1">TradingApp</span><span class="s2">:</span>
+    <span class="s0">def </span><span class="s1">__init__</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">root</span><span class="s2">):</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">root </span><span class="s2">= </span><span class="s1">root</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">root</span><span class="s2">.</span><span class="s1">title</span><span class="s2">(</span><span class="s4">&quot;Trading Parameters&quot;</span><span class="s2">)</span>
+
+        <span class="s5"># SMA Period</span>
+        <span class="s1">sma_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;SMA Periodo:&quot;</span><span class="s2">)</span>
+        <span class="s1">sma_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">0</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">sma_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">sma_entry</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s3">0</span><span class="s2">, </span><span class="s4">&quot;20&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">sma_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">0</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+
+        <span class="s5"># EMA Period</span>
+        <span class="s1">ema_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;EMA Periodo:&quot;</span><span class="s2">)</span>
+        <span class="s1">ema_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">1</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ema_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ema_entry</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s3">0</span><span class="s2">, </span><span class="s4">&quot;21&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ema_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">1</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+
+        <span class="s5"># Granularidad</span>
+        <span class="s1">granularidad_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Granularidad:&quot;</span><span class="s2">)</span>
+        <span class="s1">granularidad_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">2</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">granularidad_options </span><span class="s2">= [</span><span class="s4">&quot;1m&quot;</span><span class="s2">, </span><span class="s4">&quot;5m&quot;</span><span class="s2">, </span><span class="s4">&quot;15m&quot;</span><span class="s2">, </span><span class="s4">&quot;30m&quot;</span><span class="s2">, </span><span class="s4">&quot;1h&quot;</span><span class="s2">, </span><span class="s4">&quot;4h&quot;</span><span class="s2">, </span><span class="s4">&quot;6h&quot;</span><span class="s2">, </span><span class="s4">&quot;12h&quot;</span><span class="s2">, </span><span class="s4">&quot;1d&quot;</span><span class="s2">, </span><span class="s4">&quot;3d&quot;</span><span class="s2">, </span><span class="s4">&quot;1w&quot;</span><span class="s2">, </span><span class="s4">&quot;1M&quot;</span><span class="s2">]</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">granularidad_combobox </span><span class="s2">= </span><span class="s1">ttk</span><span class="s2">.</span><span class="s1">Combobox</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">values</span><span class="s2">=</span><span class="s1">granularidad_options</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">granularidad_combobox</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">2</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">granularidad_combobox</span><span class="s2">.</span><span class="s1">set</span><span class="s2">(</span><span class="s4">&quot;1m&quot;</span><span class="s2">)</span>
+
+        <span class="s5"># Product Type</span>
+        <span class="s1">product_type_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Product Type:&quot;</span><span class="s2">)</span>
+        <span class="s1">product_type_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">3</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">product_type_options </span><span class="s2">= [</span><span class="s4">&quot;usdt-futures&quot;</span><span class="s2">, </span><span class="s4">&quot;usdc-futures&quot;</span><span class="s2">, </span><span class="s4">&quot;susdt-futures&quot;</span><span class="s2">, </span><span class="s4">&quot;susdc-futures&quot;</span><span class="s2">]</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type_combobox </span><span class="s2">= </span><span class="s1">ttk</span><span class="s2">.</span><span class="s1">Combobox</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">values</span><span class="s2">=</span><span class="s1">product_type_options</span><span class="s2">, </span><span class="s1">state</span><span class="s2">=</span><span class="s4">&quot;readonly&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type_combobox</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">3</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type_combobox</span><span class="s2">.</span><span class="s1">bind</span><span class="s2">(</span><span class="s4">&quot;&lt;&lt;ComboboxSelected&gt;&gt;&quot;</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">update_symbol_options</span><span class="s2">)</span>
+
+        <span class="s5"># Symbol</span>
+        <span class="s1">symbol_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Simbolo:&quot;</span><span class="s2">)</span>
+        <span class="s1">symbol_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">4</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">symbol_combobox </span><span class="s2">= </span><span class="s1">ttk</span><span class="s2">.</span><span class="s1">Combobox</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">state</span><span class="s2">=</span><span class="s4">&quot;readonly&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">symbol_combobox</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">4</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+
+        <span class="s5">#Keys</span>
+        <span class="s1">apikey_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;APIKEY:&quot;</span><span class="s2">)</span>
+        <span class="s1">apikey_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">5</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">apikey_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">show</span><span class="s2">=</span><span class="s4">&quot;*&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">apikey_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">5</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+
+        <span class="s1">secretkey_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;SECRETKEY:&quot;</span><span class="s2">)</span>
+        <span class="s1">secretkey_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">6</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">secretkey_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">show</span><span class="s2">=</span><span class="s4">&quot;*&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">secretkey_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">6</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+
+        <span class="s1">passphrase_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;PASSPHRASE&quot;</span><span class="s2">)</span>
+        <span class="s1">passphrase_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">7</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">show</span><span class="s2">=</span><span class="s4">&quot;*&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">7</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+
+        <span class="s1">ordersize_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Tamaño de la orden en % de patrimonio&quot;</span><span class="s2">)</span>
+        <span class="s1">ordersize_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">0</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">2</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize_entry</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s3">0</span><span class="s2">,</span><span class="s4">&quot;50&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">0</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">3</span><span class="s2">)</span>
+
+        <span class="s1">operaciones_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Efecto piramide&quot;</span><span class="s2">)</span>
+        <span class="s1">operaciones_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">1</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">2</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">operaciones_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">operaciones_entry</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s3">0</span><span class="s2">,</span><span class="s4">&quot;1&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">operaciones_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">1</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">3</span><span class="s2">)</span>
+
+        <span class="s1">apalancamiento_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Apalancamiento x&quot;</span><span class="s2">)</span>
+        <span class="s1">apalancamiento_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">2</span><span class="s2">, </span><span class="s1">column </span><span class="s2">=</span><span class="s3">2</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">apalancamiento_entry </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Entry</span><span class="s2">(</span><span class="s1">root</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">apalancamiento_entry</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s3">0</span><span class="s2">, </span><span class="s4">&quot;1&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">apalancamiento_entry</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">2</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">3</span><span class="s2">)</span>
+
+        <span class="s5"># Start Button</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">start_button </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Button</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Start&quot;</span><span class="s2">, </span><span class="s1">command</span><span class="s2">=</span><span class="s1">self</span><span class="s2">.</span><span class="s1">start_bot</span><span class="s2">, </span><span class="s1">state</span><span class="s2">=</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">NORMAL</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">start_button</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row </span><span class="s2">= </span><span class="s3">8</span><span class="s2">, </span><span class="s1">column </span><span class="s2">= </span><span class="s3">0</span><span class="s2">, </span><span class="s1">columnspan </span><span class="s2">= </span><span class="s3">2</span><span class="s2">, </span><span class="s1">pady </span><span class="s2">= </span><span class="s3">10</span><span class="s2">)</span>
+
+        <span class="s5"># Log Text</span>
+        <span class="s1">log_label </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Label</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">text</span><span class="s2">=</span><span class="s4">&quot;Log:&quot;</span><span class="s2">)</span>
+        <span class="s1">log_label</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">9</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">, </span><span class="s1">sticky</span><span class="s2">=</span><span class="s4">&quot;w&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Text</span><span class="s2">(</span><span class="s1">root</span><span class="s2">, </span><span class="s1">height</span><span class="s2">=</span><span class="s3">20</span><span class="s2">, </span><span class="s1">width</span><span class="s2">=</span><span class="s3">120</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">grid</span><span class="s2">(</span><span class="s1">row</span><span class="s2">=</span><span class="s3">10</span><span class="s2">, </span><span class="s1">column</span><span class="s2">=</span><span class="s3">0</span><span class="s2">, </span><span class="s1">columnspan</span><span class="s2">=</span><span class="s3">2</span><span class="s2">, </span><span class="s1">pady</span><span class="s2">=</span><span class="s3">10</span><span class="s2">)</span>
+
+    <span class="s0">def </span><span class="s1">update_symbol_options</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">event</span><span class="s2">):</span>
+        <span class="s1">selected_product_type </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type_combobox</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+
+        <span class="s5"># Fetch symbols based on the selected product type using requests</span>
+        <span class="s1">symbols </span><span class="s2">= </span><span class="s1">get_all_symbols</span><span class="s2">(</span><span class="s1">selected_product_type</span><span class="s2">)</span>
+
+        <span class="s5"># Update the symbol combobox with the fetched symbols</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">symbol_combobox</span><span class="s2">[</span><span class="s4">&quot;values&quot;</span><span class="s2">] = </span><span class="s1">symbols</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">symbol_combobox</span><span class="s2">.</span><span class="s1">current</span><span class="s2">(</span><span class="s3">0</span><span class="s2">)  </span><span class="s5"># Set the default selection</span>
+
+    <span class="s0">def </span><span class="s1">start_bot</span><span class="s2">(</span><span class="s1">self</span><span class="s2">):</span>
+        <span class="s1">sma_periodo </span><span class="s2">= </span><span class="s1">int</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">sma_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">())</span>
+        <span class="s1">ema_periodo </span><span class="s2">= </span><span class="s1">int</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">ema_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">())</span>
+        <span class="s1">granularidad </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">granularidad_combobox</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+        <span class="s1">product_type </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type_combobox</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+        <span class="s1">simbolo </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">symbol_combobox</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+        <span class="s1">ordersize </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+        <span class="s1">pyramiding </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">operaciones_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+        <span class="s1">apalancamiento </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">apalancamiento_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+
+        <span class="s5">#Keys</span>
+        <span class="s1">api_key </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">apikey_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+        <span class="s1">secretkey </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">secretkey_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+        <span class="s1">passphrase </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase_entry</span><span class="s2">.</span><span class="s1">get</span><span class="s2">()</span>
+
+        <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">True</span>
+
+        <span class="s0">if not </span><span class="s1">sma_periodo</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce sma periodo</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">ema_periodo</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce ema periodo</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">granularidad</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce granularidad</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">product_type</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce product type</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">simbolo</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce simbolo</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">api_key</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce APIKEY</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">secretkey</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce SECRETKEY</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">passphrase</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce PASSPHRASE</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">ordersize</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce tamaño de orden&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">pyramiding</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce valor efecto piramide&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if not </span><span class="s1">apalancamiento</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Introduce valor de apalancamiento&quot;</span><span class="s2">)</span>
+            <span class="s1">params_definidos </span><span class="s2">= </span><span class="s0">False</span>
+
+        <span class="s0">if </span><span class="s1">params_definidos</span><span class="s2">:</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">start_button</span><span class="s2">[</span><span class="s4">'state'</span><span class="s2">] = </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">DISABLED</span>
+            <span class="s1">bot </span><span class="s2">= </span><span class="s1">TradingBot</span><span class="s2">(</span><span class="s1">sma_periodo</span><span class="s2">, </span><span class="s1">ema_periodo</span><span class="s2">, </span><span class="s1">granularidad</span><span class="s2">, </span><span class="s1">product_type</span><span class="s2">, </span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">api_key</span><span class="s2">, </span><span class="s1">secretkey</span><span class="s2">, </span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">ordersize</span><span class="s2">, </span><span class="s1">pyramiding</span><span class="s2">, </span><span class="s1">apalancamiento</span><span class="s2">, </span><span class="s1">log_text</span><span class="s2">=</span><span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">)</span>
+            <span class="s1">bot_thread </span><span class="s2">= </span><span class="s1">Thread</span><span class="s2">(</span><span class="s1">target</span><span class="s2">=</span><span class="s1">bot</span><span class="s2">.</span><span class="s1">iniciar_bot</span><span class="s2">)</span>
+            <span class="s1">bot_thread</span><span class="s2">.</span><span class="s1">start</span><span class="s2">()</span>
+
+<span class="s0">class </span><span class="s1">TradingBot</span><span class="s2">:</span>
+    <span class="s0">def </span><span class="s1">__init__</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">sma_periodo</span><span class="s2">, </span><span class="s1">ema_periodo</span><span class="s2">, </span><span class="s1">granularidad</span><span class="s2">, </span><span class="s1">product_type</span><span class="s2">, </span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">api_key</span><span class="s2">, </span><span class="s1">secret_key</span><span class="s2">, </span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">ordersize</span><span class="s2">, </span><span class="s1">pyramiding</span><span class="s2">, </span><span class="s1">leverage</span><span class="s2">, </span><span class="s1">log_text</span><span class="s2">):</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">sma_periodo </span><span class="s2">= </span><span class="s1">sma_periodo</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ema_periodo </span><span class="s2">= </span><span class="s1">ema_periodo</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo </span><span class="s2">= </span><span class="s1">simbolo</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">granularidad </span><span class="s2">= </span><span class="s1">granularidad</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type </span><span class="s2">= </span><span class="s1">product_type</span>
+
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode </span><span class="s2">= </span><span class="s4">&quot;isolated&quot;</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">get_margin_coin</span><span class="s2">(</span><span class="s1">product_type</span><span class="s2">)</span>
+
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize </span><span class="s2">= </span><span class="s1">ordersize</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">pyramiding </span><span class="s2">= </span><span class="s1">pyramiding</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">leverage </span><span class="s2">= </span><span class="s1">leverage</span>
+
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">iniciado </span><span class="s2">= </span><span class="s0">False</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text </span><span class="s2">= </span><span class="s1">log_text</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;*&quot; </span><span class="s2">* </span><span class="s3">50 </span><span class="s2">+ </span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;Bot creado con:</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;sma_periodo:</span><span class="s0">{</span><span class="s1">sma_periodo</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;ema_periodo:</span><span class="s0">{</span><span class="s1">ema_periodo</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;granularidad:</span><span class="s0">{</span><span class="s1">granularidad</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;product_type:</span><span class="s0">{</span><span class="s1">product_type</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;simbolo:</span><span class="s0">{</span><span class="s1">simbolo</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;tamaño de la orden en % de patrimonio:</span><span class="s0">{</span><span class="s1">ordersize</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;efecto piramide:</span><span class="s0">{</span><span class="s1">pyramiding</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;apalancamiento:</span><span class="s0">{</span><span class="s1">leverage</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">&quot;*&quot; </span><span class="s2">* </span><span class="s3">50 </span><span class="s2">+ </span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+
+        <span class="s5">#KEYS</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">api_key </span><span class="s2">= </span><span class="s1">api_key</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key </span><span class="s2">= </span><span class="s1">secret_key</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase </span><span class="s2">= </span><span class="s1">passphrase</span>
+
+    <span class="s0">def </span><span class="s1">iniciar_bot</span><span class="s2">(</span><span class="s1">self</span><span class="s2">):</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">iniciado </span><span class="s2">= </span><span class="s0">True</span>
+
+        <span class="s1">sellOpen </span><span class="s2">= </span><span class="s0">False</span>
+        <span class="s1">buyOpen </span><span class="s2">= </span><span class="s0">False</span>
+        <span class="s1">orders_count </span><span class="s2">= </span><span class="s3">0</span>
+
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;Informacion de la cuenta:</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s1">account_data </span><span class="s2">= </span><span class="s1">get_account_info</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">)</span>
+        <span class="s1">cached_available </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">account_data</span><span class="s2">[</span><span class="s4">'available'</span><span class="s2">])</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;Moneda de margen:</span><span class="s0">{</span><span class="s1">account_data</span><span class="s2">[</span><span class="s4">'marginCoin'</span><span class="s2">]</span><span class="s0">}\n</span><span class="s4">&quot;</span>
+                                     <span class="s4">f&quot;Margen disponible:</span><span class="s0">{</span><span class="s1">account_data</span><span class="s2">[</span><span class="s4">'available'</span><span class="s2">]</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">set_leverage_value</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">leverage</span><span class="s2">,</span><span class="s4">&quot;long&quot;</span><span class="s2">)</span>
+        <span class="s1">self</span><span class="s2">.</span><span class="s1">set_leverage_value</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">leverage</span><span class="s2">, </span><span class="s4">&quot;short&quot;</span><span class="s2">)</span>
+
+        <span class="s0">while True</span><span class="s2">:</span>
+            <span class="s5"># Sample OHLC data (replace this with your actual price data)</span>
+            <span class="s1">data </span><span class="s2">= </span><span class="s1">get_history_candlestick_data</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">granularidad</span><span class="s2">, </span><span class="s1">int</span><span class="s2">(</span><span class="s1">time</span><span class="s2">.</span><span class="s1">time</span><span class="s2">() * </span><span class="s3">1000</span><span class="s2">),</span>
+                                                <span class="s1">product_type</span><span class="s2">=</span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span>
+
+            <span class="s5"># Define indicators</span>
+            <span class="s1">src </span><span class="s2">= </span><span class="s1">data</span><span class="s2">[</span><span class="s4">'close'</span><span class="s2">]</span>
+            <span class="s1">closesma </span><span class="s2">= </span><span class="s1">talib</span><span class="s2">.</span><span class="s1">SMA</span><span class="s2">(</span><span class="s1">src</span><span class="s2">, </span><span class="s1">timeperiod</span><span class="s2">=</span><span class="s1">self</span><span class="s2">.</span><span class="s1">sma_periodo</span><span class="s2">)</span>
+            <span class="s1">ema </span><span class="s2">= </span><span class="s1">talib</span><span class="s2">.</span><span class="s1">EMA</span><span class="s2">(</span><span class="s1">src</span><span class="s2">, </span><span class="s1">timeperiod</span><span class="s2">=</span><span class="s1">self</span><span class="s2">.</span><span class="s1">ema_periodo</span><span class="s2">)</span>
+
+            <span class="s5"># Define the Bull Market Support Band as a variable</span>
+            <span class="s1">bmsbmayor </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">concat</span><span class="s2">([</span><span class="s1">closesma</span><span class="s2">, </span><span class="s1">ema</span><span class="s2">], </span><span class="s1">axis</span><span class="s2">=</span><span class="s3">1</span><span class="s2">).</span><span class="s1">max</span><span class="s2">(</span><span class="s1">axis</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+            <span class="s1">bmsbmenor </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">concat</span><span class="s2">([</span><span class="s1">closesma</span><span class="s2">, </span><span class="s1">ema</span><span class="s2">], </span><span class="s1">axis</span><span class="s2">=</span><span class="s3">1</span><span class="s2">).</span><span class="s1">min</span><span class="s2">(</span><span class="s1">axis</span><span class="s2">=</span><span class="s3">1</span><span class="s2">)</span>
+
+            <span class="s1">ultimo_close </span><span class="s2">= </span><span class="s1">data</span><span class="s2">[</span><span class="s4">'close'</span><span class="s2">].</span><span class="s1">iloc</span><span class="s2">[-</span><span class="s3">2</span><span class="s2">]</span>
+            <span class="s1">bmsb_mayor </span><span class="s2">= </span><span class="s1">bmsbmayor</span><span class="s2">.</span><span class="s1">iloc</span><span class="s2">[-</span><span class="s3">2</span><span class="s2">]</span>
+            <span class="s1">bmsb_menor </span><span class="s2">= </span><span class="s1">bmsbmenor</span><span class="s2">.</span><span class="s1">iloc</span><span class="s2">[-</span><span class="s3">2</span><span class="s2">]</span>
+            <span class="s1">close_anterior </span><span class="s2">= </span><span class="s1">data</span><span class="s2">[</span><span class="s4">'close'</span><span class="s2">].</span><span class="s1">iloc</span><span class="s2">[-</span><span class="s3">3</span><span class="s2">]</span>
+            <span class="s1">bmsb_mayor_anterior </span><span class="s2">= </span><span class="s1">bmsbmayor</span><span class="s2">.</span><span class="s1">iloc</span><span class="s2">[-</span><span class="s3">3</span><span class="s2">]</span>
+            <span class="s1">bmsb_menor_anterior </span><span class="s2">= </span><span class="s1">bmsbmenor</span><span class="s2">.</span><span class="s1">iloc</span><span class="s2">[-</span><span class="s3">3</span><span class="s2">]</span>
+
+            <span class="s1">buy_signal </span><span class="s2">= </span><span class="s0">False</span>
+            <span class="s1">sell_signal </span><span class="s2">= </span><span class="s0">False</span>
+
+            <span class="s0">if </span><span class="s2">(</span><span class="s1">ultimo_close </span><span class="s2">&gt; </span><span class="s1">bmsb_mayor</span><span class="s2">) </span><span class="s0">and </span><span class="s2">(</span><span class="s1">close_anterior </span><span class="s2">&lt; </span><span class="s1">bmsb_mayor_anterior</span><span class="s2">):</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">'_' </span><span class="s2">* </span><span class="s3">100 </span><span class="s2">+ </span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span>
+                    <span class="s4">f'El precio de cierre ha cruzado de abajo hacia arriba la BMSB. Oportunidad de compra a las </span><span class="s0">{</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">time</span><span class="s2">()</span><span class="s0">}\n</span><span class="s4">'</span><span class="s2">)</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span>
+                    <span class="s4">f&quot;precio actual: </span><span class="s0">{</span><span class="s1">get_latest_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span><span class="s0">}</span><span class="s4">, precio de cierre: </span><span class="s0">{</span><span class="s1">ultimo_close</span><span class="s0">}</span><span class="s4">, valores de la banda a eliminar:</span><span class="s0">{</span><span class="s1">bmsb_menor</span><span class="s0">}</span><span class="s4">,</span><span class="s0">{</span><span class="s1">bmsb_mayor</span><span class="s0">} \n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">buy_signal </span><span class="s2">= </span><span class="s0">True</span>
+                <span class="s1">sell_signal </span><span class="s2">= </span><span class="s0">False</span>
+            <span class="s0">elif </span><span class="s2">(</span><span class="s1">ultimo_close </span><span class="s2">&lt; </span><span class="s1">bmsb_menor</span><span class="s2">) </span><span class="s0">and </span><span class="s2">(</span><span class="s1">close_anterior </span><span class="s2">&gt; </span><span class="s1">bmsb_menor_anterior</span><span class="s2">):</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">'_' </span><span class="s2">* </span><span class="s3">100 </span><span class="s2">+ </span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span>
+                    <span class="s4">f&quot;El precio de cierre ha cruzado de arriba hacia abajo la BMSB. Oportunidad de venta a las </span><span class="s0">{</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">time</span><span class="s2">()</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span>
+                    <span class="s4">f&quot;precio actual: </span><span class="s0">{</span><span class="s1">get_latest_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span><span class="s0">}</span><span class="s4">, precio de cierre: </span><span class="s0">{</span><span class="s1">ultimo_close</span><span class="s0">}</span><span class="s4">, valores de la banda a eliminar:</span><span class="s0">{</span><span class="s1">bmsb_menor</span><span class="s0">}</span><span class="s4">,</span><span class="s0">{</span><span class="s1">bmsb_mayor</span><span class="s0">} \n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">buy_signal </span><span class="s2">= </span><span class="s0">False</span>
+                <span class="s1">sell_signal </span><span class="s2">= </span><span class="s0">True</span>
+            <span class="s0">else</span><span class="s2">:</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">'_' </span><span class="s2">* </span><span class="s3">100 </span><span class="s2">+ </span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">f&quot;El precio de cierre no ha cruzado la BMSB y son las </span><span class="s0">{</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">time</span><span class="s2">()</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span>
+                    <span class="s4">f&quot;precio actual: </span><span class="s0">{</span><span class="s1">get_latest_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span><span class="s0">}</span><span class="s4">, precio de cierre: </span><span class="s0">{</span><span class="s1">ultimo_close</span><span class="s0">}</span><span class="s4">, valores de la banda a eliminar:</span><span class="s0">{</span><span class="s1">bmsb_menor</span><span class="s0">}</span><span class="s4">,</span><span class="s0">{</span><span class="s1">bmsb_mayor</span><span class="s0">}\n </span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">buy_signal </span><span class="s2">= </span><span class="s0">False</span>
+                <span class="s1">sell_signal </span><span class="s2">= </span><span class="s0">False</span>
+
+            <span class="s5"># Calcular los lotajes e importes usando los parametros recibidos de la interfaz y ejecutar las operaciones</span>
+            <span class="s0">if </span><span class="s1">buy_signal </span><span class="s0">and </span><span class="s1">orders_count </span><span class="s2">&lt; </span><span class="s1">int</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">pyramiding</span><span class="s2">):</span>
+                <span class="s0">if </span><span class="s1">sellOpen</span><span class="s2">:</span>
+                    <span class="s5">#Cerrar operaciones de venta abierta y abrir una nueva operacion de compra</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">cerrarOperaciones</span><span class="s2">(</span><span class="s4">&quot;short&quot;</span><span class="s2">)</span>
+                    <span class="s1">account_data </span><span class="s2">= </span><span class="s1">get_account_info</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+                                                    <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize</span><span class="s2">) / </span><span class="s3">100 </span><span class="s2">* </span><span class="s1">cached_available</span>
+                    <span class="s1">actual_available </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">account_data</span><span class="s2">[</span><span class="s4">'available'</span><span class="s2">])</span>
+
+                    <span class="s0">if </span><span class="s1">size </span><span class="s2">&gt; </span><span class="s1">actual_available</span><span class="s2">:</span>
+                        <span class="s1">size </span><span class="s2">= </span><span class="s1">actual_available</span>
+
+                    <span class="s1">coin_asking_price </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">get_asking_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">size </span><span class="s2">/ </span><span class="s1">float</span><span class="s2">(</span><span class="s1">coin_asking_price</span><span class="s2">)</span>
+
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;parametros de la operacion de compra:</span><span class="s0">\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Modo=</span><span class="s0">{</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s0">}\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Moneda de marge=</span><span class="s0">{</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s0">}\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Tamaño de la orden=</span><span class="s0">{</span><span class="s1">size</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">&quot;Operacion de venta cerrada</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">&quot;Operacion de compra abierta</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">orders_count </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">abrirOperacionDeCompra</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">)</span>
+                    <span class="s1">sellOpen </span><span class="s2">= </span><span class="s0">False</span>
+                    <span class="s1">buyOpen </span><span class="s2">= </span><span class="s0">True</span>
+                <span class="s0">else</span><span class="s2">:</span>
+                    <span class="s5">#Abrir nueva operacion de compra</span>
+                    <span class="s1">account_data </span><span class="s2">= </span><span class="s1">get_account_info</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+                                                    <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize</span><span class="s2">) / </span><span class="s3">100 </span><span class="s2">* </span><span class="s1">cached_available</span>
+                    <span class="s1">actual_available </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">account_data</span><span class="s2">[</span><span class="s4">'available'</span><span class="s2">])</span>
+
+                    <span class="s0">if </span><span class="s1">size </span><span class="s2">&gt; </span><span class="s1">actual_available</span><span class="s2">:</span>
+                        <span class="s1">size </span><span class="s2">= </span><span class="s1">actual_available</span>
+
+                    <span class="s1">coin_asking_price </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">get_asking_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">size </span><span class="s2">/ </span><span class="s1">float</span><span class="s2">(</span><span class="s1">coin_asking_price</span><span class="s2">)</span>
+
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;parametros de la operacion de compra:</span><span class="s0">\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Modo=</span><span class="s0">{</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s0">}\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Moneda de marge=</span><span class="s0">{</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s0">}\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Tamaño de la orden=</span><span class="s0">{</span><span class="s1">size</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">abrirOperacionDeCompra</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">&quot;Operacion de compra abierta</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">orders_count </span><span class="s2">= </span><span class="s1">orders_count </span><span class="s2">+ </span><span class="s1">self</span><span class="s2">.</span><span class="s1">abrirOperacionDeCompra</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">)</span>
+                    <span class="s1">buyOpen </span><span class="s2">= </span><span class="s0">True</span>
+
+            <span class="s0">if </span><span class="s1">sell_signal </span><span class="s0">and </span><span class="s1">orders_count </span><span class="s2">&lt; </span><span class="s1">int</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">pyramiding</span><span class="s2">):</span>
+                <span class="s0">if </span><span class="s1">buyOpen</span><span class="s2">:</span>
+                    <span class="s5"># TODO Cerrar operacion de compra abierta, abrir una nueva operacion de venta</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">cerrarOperaciones</span><span class="s2">(</span><span class="s4">&quot;long&quot;</span><span class="s2">)</span>
+                    <span class="s1">account_data </span><span class="s2">= </span><span class="s1">get_account_info</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+                                                    <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize</span><span class="s2">) / </span><span class="s3">100 </span><span class="s2">* </span><span class="s1">cached_available</span>
+                    <span class="s1">actual_available </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">account_data</span><span class="s2">[</span><span class="s4">'available'</span><span class="s2">])</span>
+
+                    <span class="s0">if </span><span class="s1">size </span><span class="s2">&gt; </span><span class="s1">actual_available</span><span class="s2">:</span>
+                        <span class="s1">size </span><span class="s2">= </span><span class="s1">actual_available</span>
+
+                    <span class="s1">coin_asking_price </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">get_asking_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">size </span><span class="s2">/ </span><span class="s1">float</span><span class="s2">(</span><span class="s1">coin_asking_price</span><span class="s2">)</span>
+
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;parametros de la operacion de compra:</span><span class="s0">\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Modo=</span><span class="s0">{</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s0">}\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Moneda de marge=</span><span class="s0">{</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s0">}\n</span><span class="s4">&quot;</span>
+                                                 <span class="s4">f&quot;Tamaño de la orden=</span><span class="s0">{</span><span class="s1">size</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">abrirOperacionDeVenta</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">&quot;Operacion de compra cerrada</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">&quot;Operacion de venta abierta</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">orders_count </span><span class="s2">= </span><span class="s1">orders_count </span><span class="s2">+ </span><span class="s1">self</span><span class="s2">.</span><span class="s1">abrirOperacionDeCompra</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">)</span>
+                    <span class="s1">buyOpen </span><span class="s2">= </span><span class="s0">False</span>
+                    <span class="s1">sellOpen </span><span class="s2">= </span><span class="s0">True</span>
+                <span class="s0">else</span><span class="s2">:</span>
+                    <span class="s5"># TODO Abrir nueva operacion de venta</span>
+                    <span class="s1">account_data </span><span class="s2">= </span><span class="s1">get_account_info</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+                                                    <span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">ordersize</span><span class="s2">) / </span><span class="s3">100 </span><span class="s2">* </span><span class="s1">cached_available</span>
+                    <span class="s1">actual_available </span><span class="s2">= </span><span class="s1">float</span><span class="s2">(</span><span class="s1">account_data</span><span class="s2">[</span><span class="s4">'available'</span><span class="s2">])</span>
+
+                    <span class="s0">if </span><span class="s1">size </span><span class="s2">&gt; </span><span class="s1">actual_available</span><span class="s2">:</span>
+                        <span class="s1">size </span><span class="s2">= </span><span class="s1">actual_available</span>
+
+                    <span class="s1">coin_asking_price </span><span class="s2">= </span><span class="s1">self</span><span class="s2">.</span><span class="s1">get_asking_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">)</span>
+                    <span class="s1">size </span><span class="s2">= </span><span class="s1">size </span><span class="s2">/ </span><span class="s1">float</span><span class="s2">(</span><span class="s1">coin_asking_price</span><span class="s2">)</span>
+
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">abrirOperacionDeVenta</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">)</span>
+                    <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">,</span><span class="s4">&quot;Operacion de venta abierta</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s1">orders_count </span><span class="s2">= </span><span class="s1">orders_count </span><span class="s2">+ </span><span class="s1">self</span><span class="s2">.</span><span class="s1">abrirOperacionDeCompra</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_mode</span><span class="s2">, </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">)</span>
+                    <span class="s1">sellOpen </span><span class="s2">= </span><span class="s0">True</span>
+
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;Numero de operaciones abiertas:</span><span class="s0">{</span><span class="s1">orders_count</span><span class="s0">}\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">'_' </span><span class="s2">* </span><span class="s3">100 </span><span class="s2">+ </span><span class="s4">&quot;</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">see</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">)</span>
+
+            <span class="s1">time</span><span class="s2">.</span><span class="s1">sleep</span><span class="s2">(</span><span class="s3">10</span><span class="s2">)</span>
+
+    <span class="s0">def </span><span class="s1">abrirOperacionDeVenta</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">marginMode</span><span class="s2">, </span><span class="s1">marginCoin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">):</span>
+        <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com&quot;</span>
+        <span class="s1">endpoint </span><span class="s2">= </span><span class="s4">&quot;/api/v2/mix/order/place-order&quot;</span>
+
+        <span class="s1">params </span><span class="s2">= {</span>
+            <span class="s4">&quot;symbol&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+            <span class="s4">&quot;productType&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">,</span>
+            <span class="s4">&quot;marginMode&quot;</span><span class="s2">: </span><span class="s1">marginMode</span><span class="s2">,</span>
+            <span class="s4">&quot;marginCoin&quot;</span><span class="s2">: </span><span class="s1">marginCoin</span><span class="s2">,</span>
+            <span class="s4">&quot;size&quot;</span><span class="s2">: </span><span class="s1">size</span><span class="s2">,</span>
+            <span class="s4">&quot;side&quot;</span><span class="s2">: </span><span class="s4">&quot;sell&quot;</span><span class="s2">,</span>
+            <span class="s4">&quot;orderType&quot;</span><span class="s2">: </span><span class="s4">&quot;market&quot;</span><span class="s2">,</span>
+            <span class="s4">&quot;tradeSide&quot;</span><span class="s2">: </span><span class="s4">&quot;open&quot;</span>
+        <span class="s2">}</span>
+
+        <span class="s1">timestamp </span><span class="s2">= </span><span class="s1">str</span><span class="s2">(</span><span class="s1">int</span><span class="s2">(</span><span class="s1">time</span><span class="s2">.</span><span class="s1">time</span><span class="s2">() * </span><span class="s3">1000</span><span class="s2">))</span>
+        <span class="s1">message </span><span class="s2">= </span><span class="s1">timestamp </span><span class="s2">+ </span><span class="s4">&quot;POST&quot; </span><span class="s2">+ </span><span class="s1">endpoint </span><span class="s2">+ </span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">)</span>
+        <span class="s1">signature </span><span class="s2">= </span><span class="s1">base64</span><span class="s2">.</span><span class="s1">b64encode</span><span class="s2">(</span><span class="s1">hmac</span><span class="s2">.</span><span class="s1">new</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">message</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">hashlib</span><span class="s2">.</span><span class="s1">sha256</span><span class="s2">).</span><span class="s1">digest</span><span class="s2">())</span>
+
+        <span class="s1">headers </span><span class="s2">= {</span>
+            <span class="s4">&quot;ACCESS-KEY&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-SIGN&quot;</span><span class="s2">: </span><span class="s1">signature</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-TIMESTAMP&quot;</span><span class="s2">: </span><span class="s1">timestamp</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-PASSPHRASE&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">,</span>
+            <span class="s4">&quot;Content-Type&quot;</span><span class="s2">: </span><span class="s4">&quot;application/json&quot;</span>
+        <span class="s2">}</span>
+
+        <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">post</span><span class="s2">(</span><span class="s1">base_url </span><span class="s2">+ </span><span class="s1">endpoint</span><span class="s2">, </span><span class="s1">headers</span><span class="s2">=</span><span class="s1">headers</span><span class="s2">, </span><span class="s1">data</span><span class="s2">=</span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">))</span>
+        <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+            <span class="s1">response_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">()</span>
+            <span class="s0">if </span><span class="s4">'data' </span><span class="s0">in </span><span class="s1">response_data</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">())</span>
+                <span class="s1">data_values </span><span class="s2">= </span><span class="s1">response_data</span><span class="s2">[</span><span class="s4">'data'</span><span class="s2">]</span>
+                <span class="s0">return </span><span class="s3">1</span>
+            <span class="s0">else</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+                <span class="s0">return </span><span class="s3">0</span>
+        <span class="s0">else</span><span class="s2">:</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s4">&quot;Operacion de venta no realizada&quot;</span><span class="s2">)</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+            <span class="s0">return </span><span class="s3">0</span>
+
+    <span class="s0">def </span><span class="s1">abrirOperacionDeCompra</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">marginMode</span><span class="s2">, </span><span class="s1">marginCoin</span><span class="s2">, </span><span class="s1">size</span><span class="s2">):</span>
+        <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com&quot;</span>
+        <span class="s1">endpoint </span><span class="s2">= </span><span class="s4">&quot;/api/v2/mix/order/place-order&quot;</span>
+
+        <span class="s1">params </span><span class="s2">= {</span>
+            <span class="s4">&quot;symbol&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+            <span class="s4">&quot;productType&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">,</span>
+            <span class="s4">&quot;marginMode&quot;</span><span class="s2">: </span><span class="s1">marginMode</span><span class="s2">,</span>
+            <span class="s4">&quot;marginCoin&quot;</span><span class="s2">: </span><span class="s1">marginCoin</span><span class="s2">,</span>
+            <span class="s4">&quot;size&quot;</span><span class="s2">: </span><span class="s1">size</span><span class="s2">,</span>
+            <span class="s4">&quot;side&quot;</span><span class="s2">: </span><span class="s4">&quot;buy&quot;</span><span class="s2">,</span>
+            <span class="s4">&quot;orderType&quot;</span><span class="s2">: </span><span class="s4">&quot;market&quot;</span><span class="s2">,</span>
+            <span class="s4">&quot;tradeSide&quot;</span><span class="s2">: </span><span class="s4">&quot;open&quot;</span>
+        <span class="s2">}</span>
+
+        <span class="s1">timestamp </span><span class="s2">= </span><span class="s1">str</span><span class="s2">(</span><span class="s1">int</span><span class="s2">(</span><span class="s1">time</span><span class="s2">.</span><span class="s1">time</span><span class="s2">() * </span><span class="s3">1000</span><span class="s2">))</span>
+        <span class="s1">message </span><span class="s2">= </span><span class="s1">timestamp </span><span class="s2">+ </span><span class="s4">&quot;POST&quot; </span><span class="s2">+ </span><span class="s1">endpoint </span><span class="s2">+ </span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">)</span>
+        <span class="s1">signature </span><span class="s2">= </span><span class="s1">base64</span><span class="s2">.</span><span class="s1">b64encode</span><span class="s2">(</span><span class="s1">hmac</span><span class="s2">.</span><span class="s1">new</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">message</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">hashlib</span><span class="s2">.</span><span class="s1">sha256</span><span class="s2">).</span><span class="s1">digest</span><span class="s2">())</span>
+
+        <span class="s1">headers </span><span class="s2">= {</span>
+            <span class="s4">&quot;ACCESS-KEY&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-SIGN&quot;</span><span class="s2">: </span><span class="s1">signature</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-TIMESTAMP&quot;</span><span class="s2">: </span><span class="s1">timestamp</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-PASSPHRASE&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">,</span>
+            <span class="s4">&quot;Content-Type&quot;</span><span class="s2">: </span><span class="s4">&quot;application/json&quot;</span>
+        <span class="s2">}</span>
+
+        <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">post</span><span class="s2">(</span><span class="s1">base_url </span><span class="s2">+ </span><span class="s1">endpoint</span><span class="s2">, </span><span class="s1">headers</span><span class="s2">=</span><span class="s1">headers</span><span class="s2">, </span><span class="s1">data</span><span class="s2">=</span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">))</span>
+        <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+            <span class="s1">response_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">()</span>
+            <span class="s0">if </span><span class="s4">'data' </span><span class="s0">in </span><span class="s1">response_data</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">())</span>
+                <span class="s1">data_values </span><span class="s2">= </span><span class="s1">response_data</span><span class="s2">[</span><span class="s4">'data'</span><span class="s2">]</span>
+                <span class="s0">return </span><span class="s3">1</span>
+            <span class="s0">else</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+                <span class="s0">return </span><span class="s3">0</span>
+        <span class="s0">else</span><span class="s2">:</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s4">&quot;Operacion de compra no realizada&quot;</span><span class="s2">)</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+            <span class="s0">return </span><span class="s3">0</span>
+
+    <span class="s0">def </span><span class="s1">cerrarOperaciones</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">holdSide</span><span class="s2">):</span>
+        <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com&quot;</span>
+        <span class="s1">endpoint </span><span class="s2">= </span><span class="s4">&quot;/api/v2/mix/order/close-positions&quot;</span>
+
+        <span class="s1">params </span><span class="s2">= {</span>
+            <span class="s4">&quot;symbol&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+            <span class="s4">&quot;holdSide&quot;</span><span class="s2">: </span><span class="s1">holdSide</span><span class="s2">,</span>
+            <span class="s4">&quot;productType&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">,</span>
+        <span class="s2">}</span>
+
+        <span class="s1">timestamp </span><span class="s2">= </span><span class="s1">str</span><span class="s2">(</span><span class="s1">int</span><span class="s2">(</span><span class="s1">time</span><span class="s2">.</span><span class="s1">time</span><span class="s2">() * </span><span class="s3">1000</span><span class="s2">))</span>
+        <span class="s1">message </span><span class="s2">= </span><span class="s1">timestamp </span><span class="s2">+ </span><span class="s4">&quot;POST&quot; </span><span class="s2">+ </span><span class="s1">endpoint </span><span class="s2">+ </span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">)</span>
+        <span class="s1">signature </span><span class="s2">= </span><span class="s1">base64</span><span class="s2">.</span><span class="s1">b64encode</span><span class="s2">(</span><span class="s1">hmac</span><span class="s2">.</span><span class="s1">new</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">message</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">hashlib</span><span class="s2">.</span><span class="s1">sha256</span><span class="s2">).</span><span class="s1">digest</span><span class="s2">())</span>
+
+        <span class="s1">headers </span><span class="s2">= {</span>
+            <span class="s4">&quot;ACCESS-KEY&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-SIGN&quot;</span><span class="s2">: </span><span class="s1">signature</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-TIMESTAMP&quot;</span><span class="s2">: </span><span class="s1">timestamp</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-PASSPHRASE&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">,</span>
+            <span class="s4">&quot;Content-Type&quot;</span><span class="s2">: </span><span class="s4">&quot;application/json&quot;</span>
+        <span class="s2">}</span>
+
+        <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">post</span><span class="s2">(</span><span class="s1">base_url </span><span class="s2">+ </span><span class="s1">endpoint</span><span class="s2">, </span><span class="s1">headers</span><span class="s2">=</span><span class="s1">headers</span><span class="s2">, </span><span class="s1">data</span><span class="s2">=</span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">))</span>
+        <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+            <span class="s1">response_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">()</span>
+            <span class="s0">if </span><span class="s4">'data' </span><span class="s0">in </span><span class="s1">response_data</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">())</span>
+                <span class="s1">data_values </span><span class="s2">= </span><span class="s1">response_data</span><span class="s2">[</span><span class="s4">'data'</span><span class="s2">]</span>
+                <span class="s0">return </span><span class="s1">data_values</span>
+            <span class="s0">else</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+                <span class="s0">return None</span>
+        <span class="s0">else</span><span class="s2">:</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s4">&quot;Operacion de compra no realizada&quot;</span><span class="s2">)</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+            <span class="s0">return None</span>
+
+    <span class="s0">def </span><span class="s1">set_leverage_value</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">leverage</span><span class="s2">, </span><span class="s1">holdSide</span><span class="s2">):</span>
+        <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com&quot;</span>
+        <span class="s1">endpoint </span><span class="s2">= </span><span class="s4">&quot;/api/v2/mix/account/set-leverage&quot;</span>
+
+        <span class="s1">params </span><span class="s2">= {</span>
+            <span class="s4">&quot;symbol&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">simbolo</span><span class="s2">,</span>
+            <span class="s4">&quot;productType&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">product_type</span><span class="s2">,</span>
+            <span class="s4">&quot;marginCoin&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">margin_coin</span><span class="s2">,</span>
+            <span class="s4">&quot;leverage&quot;</span><span class="s2">: </span><span class="s1">leverage</span><span class="s2">,</span>
+            <span class="s4">&quot;holdSide&quot;</span><span class="s2">: </span><span class="s1">holdSide</span><span class="s2">,</span>
+        <span class="s2">}</span>
+
+        <span class="s1">timestamp </span><span class="s2">= </span><span class="s1">str</span><span class="s2">(</span><span class="s1">int</span><span class="s2">(</span><span class="s1">time</span><span class="s2">.</span><span class="s1">time</span><span class="s2">() * </span><span class="s3">1000</span><span class="s2">))</span>
+        <span class="s1">message </span><span class="s2">= </span><span class="s1">timestamp </span><span class="s2">+ </span><span class="s4">&quot;POST&quot; </span><span class="s2">+ </span><span class="s1">endpoint </span><span class="s2">+ </span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">)</span>
+        <span class="s1">signature </span><span class="s2">= </span><span class="s1">base64</span><span class="s2">.</span><span class="s1">b64encode</span><span class="s2">(</span>
+            <span class="s1">hmac</span><span class="s2">.</span><span class="s1">new</span><span class="s2">(</span><span class="s1">self</span><span class="s2">.</span><span class="s1">secret_key</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">message</span><span class="s2">.</span><span class="s1">encode</span><span class="s2">(</span><span class="s4">'utf-8'</span><span class="s2">), </span><span class="s1">hashlib</span><span class="s2">.</span><span class="s1">sha256</span><span class="s2">).</span><span class="s1">digest</span><span class="s2">())</span>
+
+        <span class="s1">headers </span><span class="s2">= {</span>
+            <span class="s4">&quot;ACCESS-KEY&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">api_key</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-SIGN&quot;</span><span class="s2">: </span><span class="s1">signature</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-TIMESTAMP&quot;</span><span class="s2">: </span><span class="s1">timestamp</span><span class="s2">,</span>
+            <span class="s4">&quot;ACCESS-PASSPHRASE&quot;</span><span class="s2">: </span><span class="s1">self</span><span class="s2">.</span><span class="s1">passphrase</span><span class="s2">,</span>
+            <span class="s4">&quot;Content-Type&quot;</span><span class="s2">: </span><span class="s4">&quot;application/json&quot;</span>
+        <span class="s2">}</span>
+
+        <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">post</span><span class="s2">(</span><span class="s1">base_url </span><span class="s2">+ </span><span class="s1">endpoint</span><span class="s2">, </span><span class="s1">headers</span><span class="s2">=</span><span class="s1">headers</span><span class="s2">, </span><span class="s1">data</span><span class="s2">=</span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">params</span><span class="s2">))</span>
+        <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+            <span class="s1">response_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">()</span>
+            <span class="s0">if </span><span class="s4">'data' </span><span class="s0">in </span><span class="s1">response_data</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">())</span>
+                <span class="s1">self</span><span class="s2">.</span><span class="s1">log_text</span><span class="s2">.</span><span class="s1">insert</span><span class="s2">(</span><span class="s1">tk</span><span class="s2">.</span><span class="s1">END</span><span class="s2">, </span><span class="s4">f&quot;Apalancamiento </span><span class="s0">{</span><span class="s1">holdSide</span><span class="s0">} </span><span class="s4">cambiado a </span><span class="s0">{</span><span class="s1">leverage</span><span class="s0">}</span><span class="s4">x</span><span class="s0">\n</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">data_values </span><span class="s2">= </span><span class="s1">response_data</span><span class="s2">[</span><span class="s4">'data'</span><span class="s2">]</span>
+                <span class="s0">return </span><span class="s1">data_values</span>
+            <span class="s0">else</span><span class="s2">:</span>
+                <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+                <span class="s0">return None</span>
+        <span class="s0">else</span><span class="s2">:</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s4">&quot;No se pudo cambiar el apalancamiento en long&quot;</span><span class="s2">)</span>
+            <span class="s1">print</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">text</span><span class="s2">)</span>
+            <span class="s0">return None</span>
+
+    <span class="s0">def </span><span class="s1">get_margin_coin</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">productType</span><span class="s2">):</span>
+        <span class="s0">if </span><span class="s1">productType </span><span class="s2">== </span><span class="s4">&quot;usdt-futures&quot;</span><span class="s2">:</span>
+            <span class="s0">return </span><span class="s4">&quot;USDT&quot;</span>
+
+        <span class="s0">if </span><span class="s1">productType </span><span class="s2">== </span><span class="s4">&quot;usdc-futures&quot;</span><span class="s2">:</span>
+            <span class="s0">return </span><span class="s4">&quot;USDC&quot;</span>
+
+        <span class="s0">if </span><span class="s1">productType </span><span class="s2">== </span><span class="s4">&quot;susdt-futures&quot;</span><span class="s2">:</span>
+            <span class="s0">return </span><span class="s4">&quot;SUSDT&quot;</span>
+
+        <span class="s0">if </span><span class="s1">productType </span><span class="s2">== </span><span class="s4">&quot;susdc-futures&quot;</span><span class="s2">:</span>
+            <span class="s0">return </span><span class="s4">&quot;SUSDC&quot;</span>
+
+    <span class="s0">def </span><span class="s1">get_asking_price</span><span class="s2">(</span><span class="s1">self</span><span class="s2">, </span><span class="s1">symbol</span><span class="s2">, </span><span class="s1">_productType</span><span class="s2">):</span>
+        <span class="s1">base_url </span><span class="s2">= </span><span class="s4">&quot;https://api.bitget.com/api/v2/mix/market/ticker?&quot;</span>
+
+        <span class="s1">params </span><span class="s2">= {</span>
+            <span class="s4">'symbol'</span><span class="s2">: </span><span class="s1">symbol</span><span class="s2">,</span>
+            <span class="s4">'productType'</span><span class="s2">: </span><span class="s1">_productType</span>
+        <span class="s2">}</span>
+
+        <span class="s1">response </span><span class="s2">= </span><span class="s1">requests</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s1">base_url</span><span class="s2">, </span><span class="s1">params</span><span class="s2">=</span><span class="s1">params</span><span class="s2">)</span>
+
+        <span class="s0">if </span><span class="s1">response</span><span class="s2">.</span><span class="s1">status_code </span><span class="s2">== </span><span class="s3">200</span><span class="s2">:</span>
+            <span class="s1">_data </span><span class="s2">= </span><span class="s1">response</span><span class="s2">.</span><span class="s1">json</span><span class="s2">().</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'data'</span><span class="s2">, [])</span>
+            <span class="s0">return </span><span class="s1">_data</span><span class="s2">[</span><span class="s3">0</span><span class="s2">].</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'askPr'</span><span class="s2">)</span>
+        <span class="s0">else</span><span class="s2">:</span>
+            <span class="s0">return None</span>
+
+<span class="s0">if </span><span class="s1">__name__ </span><span class="s2">== </span><span class="s4">&quot;__main__&quot;</span><span class="s2">:</span>
+    <span class="s1">root </span><span class="s2">= </span><span class="s1">tk</span><span class="s2">.</span><span class="s1">Tk</span><span class="s2">()</span>
+    <span class="s1">app </span><span class="s2">= </span><span class="s1">TradingApp</span><span class="s2">(</span><span class="s1">root</span><span class="s2">)</span>
+    <span class="s1">root</span><span class="s2">.</span><span class="s1">mainloop</span><span class="s2">()</span>
+    <span class="s1">input</span><span class="s2">(</span><span class="s4">&quot;Press Enter to exit&quot;</span><span class="s2">)</span>
+</pre>
+</body>
+</html>
